@@ -18,15 +18,7 @@ class CohereClient:
         if not api_key:
             logger.warning("COHERE_API_KEY not found. Reranking will be skipped (using original order).")
         else:
-            try:
-                self.client = cohere.ClientV2(api_key)
-                available_cohere_models = self.client.models.list()
-                available_models = [m.name for m in available_cohere_models.models]
-                if model not in available_models and not model.startswith('rerank-'):
-                    logger.warning(f"Cohere reranker model '{model}' not found in available models. Check model name.")
-            except Exception as e:
-                logger.error(f"An unexpected error occurred during Cohere client initialization: {e}")
-                self.client = None
+            self.client = cohere.ClientV2(api_key)
     
     def rerank_snippets(self, query: str, snippets: List[str], 
                        top_k: int) -> List[Dict[str, Union[str, Optional[float]]]]:

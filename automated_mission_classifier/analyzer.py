@@ -116,7 +116,8 @@ class AutomatedMissionClassifier:
             'science': self.results_dir / f"{cache_prefix}_science.json",
             'skipped': self.results_dir / f"{cache_prefix}_skipped.json",
             'snippets': self.results_dir / f"{cache_prefix}_snippets.json",
-            'papers': self.results_dir / f"{cache_prefix}_papers.json"
+            'papers': self.results_dir / f"{cache_prefix}_papers.json",
+            'downloaded': self.results_dir / f"{cache_prefix}_downloaded.json"
         }
         
         # Initialize report generator

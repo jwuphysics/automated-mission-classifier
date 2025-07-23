@@ -8,20 +8,20 @@ There are two main ways to use the Automated Mission Classifier:
 **Single paper mode**: `amc --mission MISSION_NAME --bibcode BIBCODE`. For example:
 
 ```bash
-amc --mission TESS --bibcode 2024ApJ...123..456A
+amc --mission TESS --bibcode 2020MNRAS.491.2982E
 ```
 
 **Batch mode**: `amc --mission MISSION_NAME --batch-mode MODE`. For example:
 
 ```bash
-# Process all papers in the dataset
-amc --mission JWST --batch-mode all
-
 # Process specific bibcodes from a file
-amc --mission TESS --batch-mode bibcodes.txt
+amc --mission JWST --batch-mode bibcodes.txt
 
 # Process comma-separated bibcodes
-amc --mission GALEX --batch-mode "2024ApJ...1..1A,2024ApJ...2..2B"
+amc --mission TESS --batch-mode "2020MNRAS.491.2982E,2020MNRAS.495.2844S"
+
+# Process all papers in the dataset
+amc --mission GALEX --batch-mode all
 ```
 
 ## Installation
@@ -30,7 +30,7 @@ We recommend using version Python 3.10 or higher, and using a virtual environmen
 
 To install from the source, first copy the repository to your computer
 ```bash
-git clone <repository-url>
+git clone git@github.com:jwuphysics/automated-mission-classifier.git
 
 cd automated-mission-classifier
 ```
@@ -65,19 +65,19 @@ View all options using `amc --help`. Here are some common usage patterns:
 
 ```bash
 # Specify a different GPT model
-amc --mission TESS --bibcode 2024ApJ...1..1A --gpt-model gpt-4.1-mini-2025-04-14
+amc --mission TESS --bibcode 2020MNRAS.491.2982E --gpt-model gpt-4.1-mini-2025-04-14
 
 # Force reprocessing and save to different directory
-amc --mission JWST --bibcode 2024ApJ...1..1A --reprocess --output-dir ./results-reprocessed
+amc --mission HST --bibcode 2020MNRAS.491.2982E --reprocess --output-dir ./results-reprocessed
 
 # Use legacy Cohere reranker instead of GPT
-amc --mission GALEX --bibcode 2024ApJ...1..1A --no-gpt-reranker
+amc --mission GALEX --bibcode 2020MNRAS.491.2982E --no-gpt-reranker
 
 # Limit batch processing for testing
 amc --mission TESS --batch-mode all --limit-papers 10
 
 # Adjust classification thresholds
-amc --mission JWST --bibcode 2024ApJ...1..1A --science-threshold 0.7 --reranker-threshold 0.1
+amc --mission JWST --bibcode 2020MNRAS.491.2982E --science-threshold 0.7 --reranker-threshold 0.1
 ```
 
 ## Key Options
@@ -115,8 +115,8 @@ amc --mission JWST --bibcode 2024ApJ...1..1A --science-threshold 0.7 --reranker-
 
 ### Batch Mode
 Generates reports in the `results/` directory:
-- `{mission}_batch_report.json`: Summary report with paper counts and analysis results
-- `{mission}_batch_report.csv`: CSV export with all papers and their classification results
+- `{data_filename}_report.json`: Summary report with paper counts and analysis results
+- `{data_filename}_report.csv`: CSV export with all papers and their classification results
 - Cache files: `{mission}_batch_science.json`, `{mission}_batch_snippets.json`, etc.
 
 ### Single Paper Mode
@@ -131,12 +131,12 @@ The tool expects a JSON data file containing paper records with the following st
 ```json
 [
   {
-    "bibcode": "2024ApJ...123..456A",
-    "title": "Paper Title",
+    "bibcode": "2020MNRAS.491.2982E",
+    "title": " HD 213885b: a transiting 1-d-period super-Earth with an Earth-like composition around a bright (V = 7.9) star unveiled by TESS",
     "body": "Full text content of the paper..."
   }
 ]
 ```
 
-The default data file is `data/combined_dataset_2025_03_25.json`.
+Other fields can also be included as metadata. The default data file is `data/combined_dataset_2025_03_25.json`.
 

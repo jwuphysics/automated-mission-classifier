@@ -1,4 +1,4 @@
-"""Command-line interface for JWST Preprint DOI Analyzer."""
+"""Command-line interface for Automated Mission Classifier."""
 
 import argparse
 import logging
@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-from .analyzer import JWSTPreprintDOIAnalyzer
+from .analyzer import AutomatedMissionClassifier
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,17 +17,32 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download arXiv papers via ADS, extract text, rerank snippets, and use LLMs to classify JWST science content and DOI presence.",
+        description="Classify papers as science or non-science for specified MAST missions using LLM analysis of full-text content.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    
+    # Required arguments
+    parser.add_argument(
+        "--mission",
+        required=True,
+        help="Mission name (e.g., TESS, GALEX, PANSTARRS) for classification"
+    )
+    parser.add_argument(
+        "--data-file",
+        type=Path,
+        default=Path("./data/combined_dataset_2025_03_25.json"),
+        help="Path to JSON data file containing paper records"
+    )
+    
+    # Mode selection
     mode_group = parser.add_mutually_exclusive_group(required=True)
     mode_group.add_argument(
-        "--year-month", 
-        help="Month to analyze in YYYY-MM format (e.g., 2024-01) for batch processing."
+        "--bibcode", 
+        help="Specific bibcode to process for single paper analysis."
     )
     mode_group.add_argument(
-        "--arxiv-id", 
-        help="Specific arXiv ID (e.g., 2301.12345) to process for single paper analysis."
+        "--batch-mode", 
+        help="Batch processing mode: 'all' for all papers, path to file with bibcodes (one per line), or comma-separated list of bibcodes."
     )
 
     parser.add_argument(
@@ -46,13 +61,7 @@ def main():
         "--science-threshold",
         type=float,
         default=0.5, 
-        help="Threshold for classifying papers as JWST science (0-1)"
-    )
-    parser.add_argument(
-        "--doi-threshold",
-        type=float,
-        default=0.8, 
-        help="Threshold for considering DOIs as properly cited (0-1)"
+        help="Threshold for classifying papers as mission science (0-1)"
     )
     parser.add_argument(
         "--reranker-threshold",
@@ -85,17 +94,7 @@ def main():
     parser.add_argument(
         "--gpt-model",
         default="gpt-4.1-mini-2025-04-14", 
-        help="GPT scoring model for JWST science and DOIs"
-    )
-    parser.add_argument(
-        "--validate-llm",
-        action="store_true",
-        help="Perform a second LLM call to validate the first analysis (increases cost/time)"
-    )
-    parser.add_argument(
-        "--skip-doi",
-        action="store_true",
-        help="Skip DOI analysis completely, even for papers that meet the science threshold"
+        help="GPT scoring model for mission science classification"
     )
     parser.add_argument(
         "--no-gpt-reranker",
@@ -107,7 +106,6 @@ def main():
         type=int,
         help="Limit processing to the first N papers (useful for testing). Only applies to batch mode."
     )
-    parser.add_argument("--ads-key", help="ADS API key (uses ADS_API_KEY env var if not provided)")
     parser.add_argument("--openai-key", help="OpenAI API key (uses OPENAI_API_KEY env var if not provided)")
     parser.add_argument("--cohere-key", help="Cohere API key (uses COHERE_API_KEY env var if not provided; reranking skipped if missing)")
 
@@ -116,18 +114,26 @@ def main():
     # Validate thresholds
     if not 0 <= args.science_threshold <= 1:
         parser.error("Science threshold must be between 0 and 1")
-    if not 0 <= args.doi_threshold <= 1:
-        parser.error("DOI threshold must be between 0 and 1")
     
     # Validate limit-papers
     if args.limit_papers is not None and args.limit_papers < 1:
         parser.error("--limit-papers must be a positive integer")
 
-    # Validate formats
-    if args.year_month and not re.match(r"^\d{4}-\d{2}$", args.year_month):
-        parser.error("year_month format must be YYYY-MM")
-    if args.arxiv_id and not re.match(r"^\d{4}\.\d{4,5}(v\d+)?$", args.arxiv_id.split('/')[-1]):
-        parser.error("Invalid arXiv ID format. Should be like XXXX.YYYYY or XXXX.YYYYYvN")
+    # Validate data file exists
+    if not args.data_file.exists():
+        parser.error(f"Data file not found: {args.data_file}")
+        
+    # Process batch mode argument
+    batch_mode_processed = None
+    if args.batch_mode:
+        if args.batch_mode.lower() == 'all':
+            batch_mode_processed = 'all'
+        elif Path(args.batch_mode).exists():
+            batch_mode_processed = args.batch_mode
+        elif ',' in args.batch_mode:
+            batch_mode_processed = [b.strip() for b in args.batch_mode.split(',') if b.strip()]
+        else:
+            parser.error("--batch-mode must be 'all', a file path, or comma-separated bibcodes")
 
     # Create output/prompts directory if it doesn't exist
     try:
@@ -138,24 +144,22 @@ def main():
         sys.exit(1)
 
     try:
-        analyzer = JWSTPreprintDOIAnalyzer(
-            year_month=args.year_month,
-            arxiv_id=args.arxiv_id,
+        analyzer = AutomatedMissionClassifier(
             output_dir=args.output_dir,
+            data_file=args.data_file,
+            mission=args.mission,
+            bibcode=args.bibcode,
+            batch_mode=batch_mode_processed,
             prompts_dir=args.prompts_dir, 
             science_threshold=args.science_threshold,
-            doi_threshold=args.doi_threshold,
             reranker_threshold=args.reranker_threshold,
-            ads_key=args.ads_key,
             openai_key=args.openai_key,
             cohere_key=args.cohere_key,
             gpt_model=args.gpt_model,
             cohere_reranker_model=args.cohere_reranker_model,
             top_k_snippets=args.top_k_snippets,
             context_sentences=args.context_sentences,
-            validate_llm=args.validate_llm,
             reprocess=args.reprocess,
-            skip_doi=args.skip_doi,
             use_gpt_reranker=not args.no_gpt_reranker,
             limit_papers=args.limit_papers,
         )
@@ -163,7 +167,7 @@ def main():
         if analyzer.run_mode == "batch":
             analyzer.run_batch() 
         elif analyzer.run_mode == "single":
-            analyzer.process_single_paper(args.arxiv_id) 
+            analyzer.process_single_paper(args.bibcode) 
 
     except ValueError as e:
         logger.error(f"Initialization Error: {e}")

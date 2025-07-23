@@ -1,9 +1,9 @@
-"""Tests for jwst_preprint_analyzer.processing.text_extractor module."""
+"""Tests for automated_mission_classifier.processing.text_extractor module."""
 
 import pytest
 from unittest.mock import patch, MagicMock
 
-from jwst_preprint_analyzer.processing.text_extractor import TextExtractor
+from automated_mission_classifier.processing.text_extractor import TextExtractor
 
 
 # Check if NLTK punkt is available

@@ -18,78 +18,48 @@ class ReportGenerator:
     def __init__(self, 
                  results_dir: Path,
                  science_threshold: float,
-                 doi_threshold: float,
                  model_config: Dict[str, str]):
         self.results_dir = results_dir
         self.science_threshold = science_threshold
-        self.doi_threshold = doi_threshold
         self.model_config = model_config
         
-    def generate_report(self, year_month: str, cache_files: Dict[str, Path], limit_papers: Optional[int] = None) -> Optional[Dict]:
+    def generate_report(self, batch_identifier: str, cache_files: Dict[str, Path], limit_papers: Optional[int] = None) -> Optional[Dict]:
         """Generate a summary report of the analysis."""
         science_results = load_cache(cache_files['science'])
-        doi_results = load_cache(cache_files['doi'])
         skipped_results = load_cache(cache_files['skipped'])
-        downloaded_papers = load_cache(cache_files['downloaded'])
+        papers_cache = load_cache(cache_files['papers'])
 
-        total_attempted = len(downloaded_papers) + len(skipped_results)
+        total_attempted = len(papers_cache)
         successfully_processed = {
             k: v for k, v in science_results.items() 
-            if isinstance(v, dict) and v.get("jwstscience", -1.0) >= 0
+            if isinstance(v, dict) and v.get("science", v.get("jwstscience", -1.0)) >= 0
         }
-        analysis_failed_ids = set(downloaded_papers.keys()) - set(successfully_processed.keys()) - set(skipped_results.keys())
-        analysis_failed_count = len(analysis_failed_ids)
+        analysis_failed_count = len(papers_cache) - len(successfully_processed) - len(skipped_results)
 
         science_papers_ids = {
-            arxiv_id for arxiv_id, r in successfully_processed.items()
-            if r.get("jwstscience", 0.0) >= self.science_threshold
+            paper_id for paper_id, r in successfully_processed.items()
+            if r.get("science", r.get("jwstscience", 0.0)) >= self.science_threshold
         }
         science_papers_count = len(science_papers_ids)
 
-        papers_with_dois_count = 0
-        papers_missing_dois_count = 0
         detailed_results_list = []
 
-        for arxiv_id in science_papers_ids:
-            doi_info = doi_results.get(arxiv_id)
-            science_info = successfully_processed[arxiv_id]
-            doi_score = 0.0
-            doi_reason = "DOI analysis not available or failed"
-            doi_quotes: List[str] = []
-            has_valid_doi = False 
-
-            if doi_info and isinstance(doi_info, dict) and doi_info.get("jwstdoi", -1.0) >= 0:
-                doi_score = doi_info.get("jwstdoi", 0.0)
-                doi_reason = doi_info.get("reason", "N/A")
-                doi_quotes = doi_info.get("quotes", [])
-                if doi_score >= self.doi_threshold:
-                    papers_with_dois_count += 1
-                    has_valid_doi = True
-                else:
-                    papers_missing_dois_count += 1
-            elif doi_info and isinstance(doi_info, dict) and doi_info.get("jwstdoi", -1.0) < 0:
-                doi_reason = doi_info.get("reason", "DOI analysis failed") 
-                papers_missing_dois_count += 1
-            else: 
-                papers_missing_dois_count += 1
-
+        for paper_id in science_papers_ids:
+            science_info = successfully_processed[paper_id]
+            paper_info = papers_cache.get(paper_id, {})
             detailed_results_list.append({
-                "arxiv_id": arxiv_id,
-                "arxiv_url": f"https://arxiv.org/abs/{arxiv_id}",
-                "science_score": science_info.get("jwstscience"),
+                "bibcode": paper_info.get("bibcode", paper_id),
+                "arxiv_id": paper_info.get("arxiv_id", ""),
+                "arxiv_url": paper_info.get("arxiv_url", ""),
+                "science_score": science_info.get("science", science_info.get("jwstscience")),
                 "science_reason": science_info.get("reason"),
-                "science_quotes": science_info.get("quotes"),
-                "doi_score": doi_score,
-                "doi_reason": doi_reason,
-                "doi_quotes": doi_quotes,
-                "has_valid_doi": has_valid_doi 
+                "science_quotes": science_info.get("quotes")
             })
 
         metadata = {
             "report_generated": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-            "year_month_analyzed": year_month,
+            "batch_analyzed": batch_identifier,
             "science_threshold": self.science_threshold,
-            "doi_threshold": self.doi_threshold,
             **self.model_config
         }
         
@@ -99,20 +69,17 @@ class ReportGenerator:
         report = {
             "metadata": metadata,
             "summary": {
-                "total_papers_identified_from_ads": total_attempted,
-                "papers_downloaded_and_converted": len(downloaded_papers), 
+                "total_papers_in_dataset": total_attempted,
                 "papers_skipped_before_analysis": len(skipped_results),
                 "papers_analysis_failed": analysis_failed_count, 
                 "papers_successfully_analyzed": len(successfully_processed), 
-                "jwst_science_papers_found": science_papers_count,
-                "science_papers_with_valid_doi": papers_with_dois_count,
-                "science_papers_missing_valid_doi": papers_missing_dois_count,
+                "mission_science_papers_found": science_papers_count,
             },
             "skipped_papers_details": dict(sorted(skipped_results.items())), 
-            "jwst_science_papers_details": sorted(detailed_results_list, key=lambda x: x['arxiv_id'])
+            "mission_science_papers_details": sorted(detailed_results_list, key=lambda x: x['bibcode'])
         }
 
-        json_filename = f"{year_month}_report"
+        json_filename = f"{batch_identifier}_report"
         if limit_papers is not None:
             json_filename += f"_limit{limit_papers}"
         json_filename += ".json"
@@ -126,22 +93,19 @@ class ReportGenerator:
         logger.info(f"Report generated: {report_path}")
         
         # Print Summary
-        logger.info(f"--- Summary for {year_month} ---")
-        logger.info(f"  Total papers from ADS: {report['summary']['total_papers_identified_from_ads']}")
-        logger.info(f"  Skipped (Download/Convert): {report['summary']['papers_skipped_before_analysis']}")
+        logger.info(f"--- Summary for {batch_identifier} ---")
+        logger.info(f"  Total papers in dataset: {report['summary']['total_papers_in_dataset']}")
+        logger.info(f"  Skipped before analysis: {report['summary']['papers_skipped_before_analysis']}")
         logger.info(f"  Analysis Failed (LLM/etc): {report['summary']['papers_analysis_failed']}")
         logger.info(f"  Successfully Analyzed: {report['summary']['papers_successfully_analyzed']}")
-        logger.info(f"  -> JWST Science Papers (Score >= {self.science_threshold}): {science_papers_count}")
-        logger.info(f"     -> With Valid DOI (Score >= {self.doi_threshold}): {papers_with_dois_count}")
-        logger.info(f"     -> Missing Valid DOI: {papers_missing_dois_count}")
+        logger.info(f"  -> {self.model_config.get('mission', 'Mission')} Science Papers (Score >= {self.science_threshold}): {science_papers_count}")
         logger.info("--- End Summary ---")
 
         return report
 
-    def generate_csv_report(self, year_month: str, cache_files: Dict[str, Path], limit_papers: Optional[int] = None) -> Optional[Path]:
+    def generate_csv_report(self, batch_identifier: str, cache_files: Dict[str, Path], limit_papers: Optional[int] = None) -> Optional[Path]:
         """Generate a CSV report with ALL papers and their processing status."""
         science_results = load_cache(cache_files['science'])
-        doi_results = load_cache(cache_files['doi'])
         skipped_results = load_cache(cache_files['skipped'])
         downloaded_papers = load_cache(cache_files['downloaded'])
         papers_cache = load_cache(cache_files['papers'])
@@ -149,39 +113,32 @@ class ReportGenerator:
         # Create CSV data for ALL papers in the papers cache
         csv_data = []
         
-        for arxiv_id, paper_info in papers_cache.items():
+        for paper_id, paper_info in papers_cache.items():
             # Start with basic paper info
             row = {
-                "arxiv_id": arxiv_id,
-                "arxiv_url": paper_info.get("arxiv_url", f"https://arxiv.org/abs/{arxiv_id}"),
+                "bibcode": paper_info.get("bibcode", paper_id),
+                "arxiv_id": paper_info.get("arxiv_id", ""),
+                "arxiv_url": paper_info.get("arxiv_url", ""),
                 "paper_title": paper_info.get("title", ""),
-                "bibcode": paper_info.get("bibcode", ""),
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
                 "top_quotes": "",
-                "jwstscience": 0.0,
+                "science_score": 0.0,
                 "reason": "",
                 "status": ""
             }
             
             # Check if paper was skipped before analysis
-            if arxiv_id in skipped_results:
-                skip_info = skipped_results[arxiv_id]
+            if paper_id in skipped_results:
+                skip_info = skipped_results[paper_id]
                 row.update({
                     "status": skip_info.get("reason", ""),
                     "timestamp": skip_info.get("timestamp", ""),
                     "reason": "Skipped before analysis"
                 })
             
-            # Check if paper was downloaded but analysis failed
-            elif arxiv_id in downloaded_papers and arxiv_id not in science_results:
-                row.update({
-                    "status": "Analysis failed - no science result",
-                    "reason": "Analysis failed"
-                })
-            
             # Check if paper had science analysis
-            elif arxiv_id in science_results:
-                science_info = science_results[arxiv_id]
+            elif paper_id in science_results:
+                science_info = science_results[paper_id]
                 
                 if isinstance(science_info, dict):
                     # Handle quotes formatting
@@ -192,26 +149,25 @@ class ReportGenerator:
                         quotes_str = str(quotes)
                     
                     row.update({
-                        "jwstscience": science_info.get("jwstscience", 0.0),
+                        "science_score": science_info.get("science", science_info.get("jwstscience", 0.0)),
                         "reason": science_info.get("reason", ""),
                         "top_quotes": quotes_str
                     })
                     
                     # Determine status based on science analysis
-                    jwst_score = science_info.get("jwstscience", 0.0)
+                    science_score = science_info.get("science", science_info.get("jwstscience", 0.0))
                     science_reason = science_info.get("reason", "")
                     
-                    if jwst_score < 0:
+                    if science_score < 0:
                         row["status"] = "Science analysis failed"
                     elif "No relevant keywords" in science_reason:
-                        row["status"] = "No JWST keywords found"
+                        row["status"] = f"No {self.model_config.get('mission', 'mission')} keywords found"
                     elif "reranker score" in science_reason:
                         row["status"] = "Below reranker threshold"
-                    elif jwst_score < self.science_threshold:
+                    elif science_score < self.science_threshold:
                         row["status"] = "Below science threshold"
                     else:
-                        row["status"] = "JWST science paper"
-                    # If jwst_score >= threshold, it's a successful JWST science paper
+                        row["status"] = f"{self.model_config.get('mission', 'Mission')} science paper"
                 else:
                     row.update({
                         "status": "Invalid science analysis result",
@@ -227,19 +183,19 @@ class ReportGenerator:
             
             csv_data.append(row)
         
-        # Sort by arxiv_id
-        csv_data.sort(key=lambda x: x['arxiv_id'])
+        # Sort by bibcode
+        csv_data.sort(key=lambda x: x['bibcode'])
         
         # Write CSV file
-        csv_filename = f"{year_month}_report"
+        csv_filename = f"{batch_identifier}_report"
         if limit_papers is not None:
             csv_filename += f"_limit{limit_papers}"
         csv_filename += ".csv"
         csv_path = self.results_dir / csv_filename
         try:
             with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ["arxiv_id", "arxiv_url", "paper_title", "top_quotes", 
-                            "jwstscience", "reason", "timestamp", "bibcode", "status"]
+                fieldnames = ["bibcode", "arxiv_id", "arxiv_url", "paper_title", "top_quotes", 
+                            "science_score", "reason", "timestamp", "status"]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(csv_data)

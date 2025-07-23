@@ -10,14 +10,7 @@ logger = logging.getLogger(__name__)
 PROMPT_FILES = {
     'science_system': 'science_system.txt',
     'science_user': 'science_user.txt',
-    'science_validate_system': 'science_validate_system.txt',
-    'science_validate_user': 'science_validate_user.txt',
     'rerank_science_query': 'rerank_science_query.txt',
-    'doi_system': 'doi_system.txt',
-    'doi_user': 'doi_user.txt',
-    'doi_validate_system': 'doi_validate_system.txt',
-    'doi_validate_user': 'doi_validate_user.txt',
-    'rerank_doi_query': 'rerank_doi_query.txt',
 }
 
 
@@ -41,12 +34,7 @@ def load_prompts(prompts_dir: Path) -> Dict[str, str]:
                 loaded_prompts[key] = f.read()
         except FileNotFoundError:
             logger.error(f"Prompt file not found: {filepath}. Please create it.")
-            if key in ['science_system', 'science_user', 'rerank_science_query', 
-                      'doi_system', 'doi_user', 'rerank_doi_query']:
-                raise FileNotFoundError(f"Essential prompt file missing: {filepath}")
-            else:
-                logger.warning(f"Optional prompt file missing: {filepath}. Validation may not work.")
-                loaded_prompts[key] = "" 
+            raise FileNotFoundError(f"Essential prompt file missing: {filepath}") 
         except Exception as e:
             logger.error(f"Failed to load prompt file {filepath}: {e}")
             raise 

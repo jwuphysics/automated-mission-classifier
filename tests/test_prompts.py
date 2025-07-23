@@ -1,10 +1,10 @@
-"""Tests for jwst_preprint_analyzer.utils.prompts module."""
+"""Tests for automated_mission_classifier.utils.prompts module."""
 
 import tempfile
 import pytest
 from pathlib import Path
 
-from jwst_preprint_analyzer.utils.prompts import load_prompts, PROMPT_FILES
+from automated_mission_classifier.utils.prompts import load_prompts, PROMPT_FILES
 
 
 class TestLoadPrompts:
@@ -19,10 +19,7 @@ class TestLoadPrompts:
             test_prompts = {
                 'science_system.txt': 'You are a science classifier.',
                 'science_user.txt': 'Classify this paper: {text}',
-                'rerank_science_query.txt': 'JWST telescope observations',
-                'doi_system.txt': 'You are a DOI classifier.',
-                'doi_user.txt': 'Find DOIs in this text: {text}',
-                'rerank_doi_query.txt': 'JWST DOI 10.17909'
+                'rerank_science_query.txt': 'JWST telescope observations'
             }
             
             for filename, content in test_prompts.items():
@@ -56,8 +53,7 @@ class TestLoadPrompts:
             
             # Create only essential prompt files
             essential_files = [
-                'science_system.txt', 'science_user.txt', 'rerank_science_query.txt',
-                'doi_system.txt', 'doi_user.txt', 'rerank_doi_query.txt'
+                'science_system.txt', 'science_user.txt', 'rerank_science_query.txt'
             ]
             
             for filename in essential_files:
@@ -68,9 +64,6 @@ class TestLoadPrompts:
             # Essential prompts should be loaded
             assert loaded['science_system'] == "Content for science_system.txt"
             
-            # Optional prompts should be empty strings
-            assert loaded['science_validate_system'] == ""
-            assert loaded['science_validate_user'] == ""
     
     def test_nonexistent_directory_creation(self):
         """Test that function creates directory if it doesn't exist."""
@@ -88,9 +81,7 @@ class TestLoadPrompts:
     def test_prompt_files_constant(self):
         """Test that PROMPT_FILES constant contains expected keys."""
         expected_keys = {
-            'science_system', 'science_user', 'science_validate_system', 'science_validate_user',
-            'rerank_science_query', 'doi_system', 'doi_user', 'doi_validate_system',
-            'doi_validate_user', 'rerank_doi_query'
+            'science_system', 'science_user', 'rerank_science_query'
         }
         
         assert set(PROMPT_FILES.keys()) == expected_keys
@@ -109,8 +100,7 @@ class TestLoadPrompts:
             (prompts_dir / 'science_system.txt').write_text(test_content, encoding='utf-8')
             
             # Create minimal essential files
-            essential_files = ['science_user.txt', 'rerank_science_query.txt',
-                             'doi_system.txt', 'doi_user.txt', 'rerank_doi_query.txt']
+            essential_files = ['science_user.txt', 'rerank_science_query.txt']
             for filename in essential_files:
                 (prompts_dir / filename).write_text("minimal", encoding='utf-8')
             
@@ -126,8 +116,7 @@ class TestLoadPrompts:
             
             # Create empty essential files
             essential_files = [
-                'science_system.txt', 'science_user.txt', 'rerank_science_query.txt',
-                'doi_system.txt', 'doi_user.txt', 'rerank_doi_query.txt'
+                'science_system.txt', 'science_user.txt', 'rerank_science_query.txt'
             ]
             
             for filename in essential_files:
@@ -136,5 +125,5 @@ class TestLoadPrompts:
             loaded = load_prompts(prompts_dir)
             
             # Should load empty strings without error
-            for key in ['science_system', 'science_user', 'doi_system']:
+            for key in ['science_system', 'science_user']:
                 assert loaded[key] == ""

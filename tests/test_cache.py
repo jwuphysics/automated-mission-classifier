@@ -1,11 +1,11 @@
-"""Tests for jwst_preprint_analyzer.utils.cache module."""
+"""Tests for automated_mission_classifier.utils.cache module."""
 
 import json
 import tempfile
 import pytest
 from pathlib import Path
 
-from jwst_preprint_analyzer.utils.cache import load_cache, save_cache
+from automated_mission_classifier.utils.cache import load_cache, save_cache
 
 
 class TestLoadCache:

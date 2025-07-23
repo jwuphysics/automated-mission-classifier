@@ -254,8 +254,11 @@ class AutomatedMissionClassifier:
             return
 
         start_time = time.time()
-        # Generate batch identifier from data file basename
-        batch_identifier = self.data_file.stem
+        # Generate batch identifier from batch mode file if provided, otherwise use data file
+        if isinstance(self.batch_mode, str) and Path(self.batch_mode).exists():
+            batch_identifier = f"{self.mission.lower()}_{Path(self.batch_mode).stem}"
+        else:
+            batch_identifier = f"{self.mission.lower()}_{self.data_file.stem}"
         logger.info(f"Starting {self.mission} mission classification batch analysis for {batch_identifier}...")
 
         try:
@@ -273,9 +276,7 @@ class AutomatedMissionClassifier:
                 if bibcode not in papers_cache:
                     papers_cache[bibcode] = {
                         'bibcode': bibcode,
-                        'title': paper.get('title', ''),
-                        'arxiv_id': paper.get('arxiv_id', ''),
-                        'arxiv_url': f"https://arxiv.org/abs/{paper.get('arxiv_id', '')}" if paper.get('arxiv_id') else ""
+                        'title': paper.get('title', '')
                     }
             save_cache(self.cache_files['papers'], papers_cache)
 

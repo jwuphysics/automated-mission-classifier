@@ -117,8 +117,6 @@ class ReportGenerator:
             # Start with basic paper info
             row = {
                 "bibcode": paper_info.get("bibcode", paper_id),
-                "arxiv_id": paper_info.get("arxiv_id", ""),
-                "arxiv_url": paper_info.get("arxiv_url", ""),
                 "paper_title": paper_info.get("title", ""),
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
                 "top_quotes": "",
@@ -194,7 +192,7 @@ class ReportGenerator:
         csv_path = self.results_dir / csv_filename
         try:
             with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ["bibcode", "arxiv_id", "arxiv_url", "paper_title", "top_quotes", 
+                fieldnames = ["bibcode", "paper_title", "top_quotes", 
                             "science_score", "reason", "timestamp", "status"]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()

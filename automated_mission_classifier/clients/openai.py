@@ -73,3 +73,58 @@ class OpenAIClient:
             return {"error": "api_error", "message": str(e)}
 
         return None
+    
+    def call_separated_analysis(self, system_prompt: str, user_prompt: str, mission: str) -> Optional[Dict[str, Any]]:
+        """Completely separated analysis: reasoning first, then scoring based on reasoning."""
+        from ..models import MissionScienceReasoningModel, MissionScienceScoringModel
+        
+        try:
+            # Step 1: Get reasoning and quotes only
+            reasoning_result = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format=MissionScienceReasoningModel,
+                timeout=60
+            )
+            
+            reasoning_data = reasoning_result.choices[0].message.parsed
+            if not reasoning_data:
+                logger.error("Failed to get reasoning from first step")
+                return None
+                
+            reasoning_dict = reasoning_data.model_dump()
+            
+            # Step 2: Score based on the reasoning
+            scoring_prompt = f"""Based on this analysis of {mission} mission science evidence:
+
+REASONING: {reasoning_dict['reason']}
+
+What score from 0.0 to 1.0 does this reasoning support for **{mission}** mission science? Your score must be consistent with the reasoning above. Pay close attention to any explicit score mentioned in the reasoning."""
+            
+            scoring_result = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "user", "content": scoring_prompt}
+                ],
+                response_format=MissionScienceScoringModel,
+                timeout=60
+            )
+            
+            scoring_data = scoring_result.choices[0].message.parsed
+            if not scoring_data:
+                logger.error("Failed to get score from second step")
+                return None
+                
+            # Combine results
+            return {
+                "quotes": reasoning_dict["quotes"],
+                "reason": reasoning_dict["reason"], 
+                "science": scoring_data.model_dump()["science"]
+            }
+                
+        except Exception as e:
+            logger.error(f"Separated analysis failed: {e}")
+            return None

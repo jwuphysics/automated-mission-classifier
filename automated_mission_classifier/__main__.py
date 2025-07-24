@@ -66,7 +66,7 @@ def main():
     parser.add_argument(
         "--reranker-threshold",
         type=float,
-        default=0.05,
+        default=0.001,
         help="Minimum reranker score for the top snippet to proceed with LLM analysis. Scores below this threshold will skip the LLM call (range 0-1)."
     )
     parser.add_argument(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "automated-mission-classifier"
-version = "0.1.0"
+version = "0.2.0"
 description = "Classify papers as science or non-science for MAST missions using LLM analysis"
 readme = "README.md"
 authors = [
@@ -20,6 +20,7 @@ dependencies = [
     "numpy>=1.23.5,<2.3.0",
     "pandas>=2.3.1",
     "openpyxl>=3.1.5",
+    "visidata>=3.2",
 ]
 
 [project.optional-dependencies]

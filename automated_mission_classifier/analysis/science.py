@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ..models import MissionScienceLabelerModel
 from ..clients.openai import OpenAIClient
 from ..clients.cohere import CohereClient
 from ..clients.gpt_reranker import GPTReranker
@@ -67,7 +66,7 @@ class ScienceAnalyzer:
                  prompts: Dict[str, str],
                  mission: str = "JWST",
                  top_k_snippets: int = 15,
-                 reranker_threshold: float = 0.1,
+                 reranker_threshold: float = 0.001,
                  gpt_reranker: Optional[GPTReranker] = None):
         self.openai_client = openai_client
         self.cohere_client = cohere_client
@@ -121,6 +120,8 @@ class ScienceAnalyzer:
             return {"science": -1.0, "reason": "Analysis failed: Missing rerank science query prompt", 
                    "quotes": [], "error": "prompt_missing"}
 
+        rerank_query = rerank_query.format(mission=self.mission)
+
         # Use GPT reranker if available, otherwise fall back to Cohere
         if self.gpt_reranker:
             reranked_data = self.gpt_reranker.rerank_snippets(
@@ -136,7 +137,7 @@ class ScienceAnalyzer:
             return {"science": 0.0, "quotes": [], 
                    "reason": "Keyword snippets found but none survived reranking/filtering."}
                    
-        # Check reranker threshold
+        # Check reranker threshold for top score
         top_score = reranked_data[0].get('score')
         if top_score is not None and top_score < self.reranker_threshold:
             logger.info(f"Skipping LLM science analysis for {paper_id}: Top reranker score ({top_score:g}) below threshold ({self.reranker_threshold}).")
@@ -146,10 +147,29 @@ class ScienceAnalyzer:
                 "reason": f"Skipped LLM analysis: Top reranker score ({top_score:g}) was below the threshold ({self.reranker_threshold}).",
             }
 
+        # Filter snippets above threshold and respect top_k limit
+        filtered_snippets = []
+        for item in reranked_data:
+            score = item.get('score')
+            if score is not None and score >= self.reranker_threshold:
+                filtered_snippets.append(item)
+            if len(filtered_snippets) >= self.top_k_snippets:
+                break
+        
+        if not filtered_snippets:
+            logger.info(f"No snippets above threshold ({self.reranker_threshold}) for {paper_id}.")
+            return {
+                "science": 0.0,
+                "quotes": [],
+                "reason": f"No snippets scored above the threshold ({self.reranker_threshold}).",
+            }
+
+        logger.info(f"Using {len(filtered_snippets)} snippets above threshold for {paper_id} (filtered from {len(reranked_data)})")
+
         # Prepare LLM input
-        reranked_snippets_for_llm = [item['snippet'] for item in reranked_data]
+        reranked_snippets_for_llm = [item['snippet'] for item in filtered_snippets]
         snippets_text = "\n---\n".join([f"Excerpt {i+1}:\n{s}" for i, s in enumerate(reranked_snippets_for_llm)])
-        max_chars = 30000 
+        max_chars = 50000 
         if len(snippets_text) > max_chars:
             logger.warning(f"Total snippet text for {paper_id} exceeds {max_chars} chars, truncating.")
             snippets_text = snippets_text[:max_chars]
@@ -168,9 +188,9 @@ class ScienceAnalyzer:
             return {"science": -1.0, "reason": "Analysis failed: Prompt formatting error", 
                    "quotes": [], "error": "prompt_format_error"}
 
-        # Call LLM
-        llm_result = self.openai_client.call_parse(
-            system_prompt, user_prompt, MissionScienceLabelerModel
+        # Call LLM with separated analysis
+        llm_result = self.openai_client.call_separated_analysis(
+            system_prompt, user_prompt, self.mission
         )
 
         if llm_result is None or "error" in llm_result:

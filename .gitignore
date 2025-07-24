@@ -7,6 +7,7 @@ papers/
 texts/
 
 .ipynb_checkpoints
+.DS_Store
 *.egg-info
 
 results*

@@ -1,1 +1,1 @@
-Do these text snippets originate from a paper that presents new scientific results derived from the specified mission data? References to other papers and mentions of previous or future observations do not count.
+Do these text snippets originate from a paper that presents new scientific results derived from the {mission} mission? References to other papers, missions, or previous or future observations do not count.

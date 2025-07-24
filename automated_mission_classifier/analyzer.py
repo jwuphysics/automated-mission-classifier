@@ -38,7 +38,7 @@ class AutomatedMissionClassifier:
                  batch_mode: Optional[str] = None,
                  prompts_dir: Path = Path("./prompts"),
                  science_threshold: float = 0.5,
-                 reranker_threshold: float = 0.1,
+                 reranker_threshold: float = 0.001,
                  openai_key: Optional[str] = None,
                  cohere_key: Optional[str] = None,
                  gpt_model: str = 'gpt-4.1-mini-2025-04-14',
@@ -373,6 +373,8 @@ class AutomatedMissionClassifier:
             return {"science": -1.0, "reason": "Analysis failed: Missing rerank science query prompt", 
                    "quotes": [], "error": "prompt_missing"}
 
+        rerank_query = rerank_query.format(mission=self.mission)
+
         # Use GPT reranker if available, otherwise fall back to Cohere
         if self.science_analyzer.gpt_reranker:
             reranked_data = self.science_analyzer.gpt_reranker.rerank_snippets(
@@ -388,7 +390,7 @@ class AutomatedMissionClassifier:
             return {"science": 0.0, "quotes": [], 
                    "reason": "Keyword snippets found but none survived reranking/filtering."}
                    
-        # Check reranker threshold
+        # Check reranker threshold for top score
         top_score = reranked_data[0].get('score')
         if top_score is not None and top_score < self.science_analyzer.reranker_threshold:
             logger.info(f"Skipping LLM science analysis for {bibcode}: Top reranker score ({top_score:g}) below threshold ({self.science_analyzer.reranker_threshold}).")
@@ -398,10 +400,29 @@ class AutomatedMissionClassifier:
                 "reason": f"Skipped LLM analysis: Top reranker score ({top_score:g}) was below the threshold ({self.science_analyzer.reranker_threshold}).",
             }
 
+        # Filter snippets above threshold and respect top_k limit
+        filtered_snippets = []
+        for item in reranked_data:
+            score = item.get('score')
+            if score is not None and score >= self.science_analyzer.reranker_threshold:
+                filtered_snippets.append(item)
+            if len(filtered_snippets) >= self.science_analyzer.top_k_snippets:
+                break
+        
+        if not filtered_snippets:
+            logger.info(f"No snippets above threshold ({self.science_analyzer.reranker_threshold}) for {bibcode}.")
+            return {
+                "science": 0.0,
+                "quotes": [],
+                "reason": f"No snippets scored above the threshold ({self.science_analyzer.reranker_threshold}).",
+            }
+
+        logger.info(f"Using {len(filtered_snippets)} snippets above threshold for {bibcode} (filtered from {len(reranked_data)})")
+
         # Prepare LLM input
-        reranked_snippets_for_llm = [item['snippet'] for item in reranked_data]
+        reranked_snippets_for_llm = [item['snippet'] for item in filtered_snippets]
         snippets_text = "\n---\n".join([f"Excerpt {i+1}:\n{s}" for i, s in enumerate(reranked_snippets_for_llm)])
-        max_chars = 30000 
+        max_chars = 50000 
         if len(snippets_text) > max_chars:
             logger.warning(f"Total snippet text for {bibcode} exceeds {max_chars} chars, truncating.")
             snippets_text = snippets_text[:max_chars]
@@ -419,13 +440,10 @@ class AutomatedMissionClassifier:
             logger.error(f"Failed to format science user prompt - missing placeholder {e}")
             return {"science": -1.0, "reason": "Analysis failed: Prompt formatting error", 
                    "quotes": [], "error": "prompt_format_error"}
-
-        # Import the model class
-        from .models import MissionScienceLabelerModel
         
-        # Call LLM using OpenAI client
-        llm_result = self.science_analyzer.openai_client.call_parse(
-            system_prompt, user_prompt, MissionScienceLabelerModel
+        # Call LLM using separated analysis
+        llm_result = self.science_analyzer.openai_client.call_separated_analysis(
+            system_prompt, user_prompt, self.mission
         )
 
         if llm_result is None or "error" in llm_result:

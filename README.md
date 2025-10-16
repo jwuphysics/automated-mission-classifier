@@ -1,6 +1,6 @@
 # Automated Mission Classifier
 
-This tool classifies whether astronomical papers are relevant to specific space missions (TESS, JWST, GALEX, PANSTARRS, etc.) using LLM analysis of full-text content.
+This tool classifies whether astronomical papers are relevant to specific telescopes or missions (TESS, JWST, GALEX, PANSTARRS, etc.) using LLM analysis of full-body text.
 
 ## Quick Start
 There are two main ways to use the Automated Mission Classifier:

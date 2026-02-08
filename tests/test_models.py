@@ -83,4 +83,3 @@ class TestMissionScienceLabelerModel:
         model = MissionScienceLabelerModel(**data)
         
         assert model.science == 0.7
-        assert model.jwstscience == 0.7

@@ -77,6 +77,9 @@ class AutomatedMissionClassifier:
         
         if not self.openai_key:
             raise ValueError("OPENAI_API_KEY must be provided (as argument or environment variable)")
+
+        if not self.use_gpt_reranker and not self.cohere_key:
+            raise ValueError("--no-gpt-reranker was set but COHERE_API_KEY is missing. Either provide COHERE_API_KEY or remove --no-gpt-reranker.")
             
         # Validate data file exists
         if not self.data_file.exists():

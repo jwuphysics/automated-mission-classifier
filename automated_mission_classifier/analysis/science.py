@@ -16,6 +16,8 @@ class ScienceAnalyzer:
     """Analyzes papers for mission-specific science content."""
     
     # Mission-specific keyword mappings
+    # NOTE: mission names are normalized to uppercase (see __init__),
+    # so the keyword map keys MUST be uppercase.
     MISSION_KEYWORDS = {
         "HST": [
             "hst", "hubble",
@@ -44,13 +46,13 @@ class ScienceAnalyzer:
         "EUVE": [
             "euve", "extreme ultraviolet explorer"
         ],
-        "Kepler": [
+        "KEPLER": [
             "kepler", "kepler space telescope",
         ],
         "K2": [
-            "kepler", "k2", 
+            "kepler", "k2",
         ],
-        "Roman": [
+        "ROMAN": [
             "roman", "roman space telescope", "nancy grace roman space telescope",
             "wfirst", "wide-field infrared survey telescope", "WFI"
         ],

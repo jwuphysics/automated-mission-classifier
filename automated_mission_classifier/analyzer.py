@@ -77,6 +77,9 @@ class AutomatedMissionClassifier:
         
         if not self.openai_key:
             raise ValueError("OPENAI_API_KEY must be provided (as argument or environment variable)")
+
+        if not self.use_gpt_reranker and not self.cohere_key:
+            raise ValueError("--no-gpt-reranker was set but COHERE_API_KEY is missing. Either provide COHERE_API_KEY or remove --no-gpt-reranker.")
             
         # Validate data file exists
         if not self.data_file.exists():
@@ -222,30 +225,6 @@ class AutomatedMissionClassifier:
         analyzed = load_cache(self.cache_files[cache_key])
         return self.reprocess or paper.get('bibcode') not in analyzed
 
-    def _process_paper(self, paper: Dict[str, str]) -> bool:
-        """Download and convert a paper. Returns True if successful."""
-        arxiv_id = paper['arxiv_id']
-        
-        # Download
-        if not self.downloader.download_paper(arxiv_id, self.reprocess):
-            self._mark_as_skipped(paper, "Download failed", save_to_cache=True)
-            return False
-            
-        # Convert
-        pdf_path = self.papers_dir / f"{arxiv_id}.pdf"
-        if not self.converter.convert_to_text(arxiv_id, pdf_path, self.reprocess):
-            self._mark_as_skipped(paper, "PDF conversion failed", save_to_cache=True)
-            return False
-            
-        # Update download cache in both modes
-        downloaded = load_cache(self.cache_files['downloaded'])
-        downloaded[arxiv_id] = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "status": "success"
-        }
-        save_cache(self.cache_files['downloaded'], downloaded)
-            
-        return True
 
     def run_batch(self):
         """Main execution pipeline for batch mode."""

@@ -11,13 +11,25 @@ class MissionScienceReasoningModel(BaseModel):
 
 class MissionScienceScoringModel(BaseModel):
     """Model for mission science scoring phase."""
-    science: float = Field(..., description="Whether the paper contains mission science, scored between 0 and 1")
+    science: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Whether the paper contains mission science, scored between 0 and 1",
+    )
 
 
 class MissionScienceLabelerModel(BaseModel):
     """Model for mission science classification results."""
-    quotes: list[str] = Field(..., description="A list of quotes supporting the reason, MUST be exact substrings from the provided excerpts.")
-    science: float = Field(..., description="Whether the paper contains mission science, scored between 0 and 1")
+    quotes: list[str] = Field(
+        ..., description="A list of quotes supporting the reason, MUST be exact substrings from the provided excerpts."
+    )
+    science: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Whether the paper contains mission science, scored between 0 and 1",
+    )
     reason: str = Field(..., description="Justification for the given 'science' score based ONLY on the provided excerpts")
 
 

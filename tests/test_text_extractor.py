@@ -37,7 +37,7 @@ class TestTextExtractor:
         extractor = TextExtractor()
         assert extractor.context_sentences == 3  # default value
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_initialization_with_mocked_nltk(self, mock_nltk):
         """Test initialization with mocked NLTK."""
         mock_nltk.data.find.return_value = True
@@ -46,7 +46,7 @@ class TestTextExtractor:
         extractor = TextExtractor(context_sentences=2)
         assert extractor.context_sentences == 2
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_initialization_downloads_missing_nltk_data(self, mock_nltk):
         """Test initialization downloads NLTK data when missing."""
         # First call raises LookupError (missing data)
@@ -59,7 +59,7 @@ class TestTextExtractor:
         # Should attempt download
         mock_nltk.download.assert_called_once_with('punkt', quiet=True)
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_extract_snippets_empty_text(self, mock_nltk):
         """Test extraction with empty text returns empty list."""
         mock_nltk.data.find.return_value = True
@@ -69,7 +69,7 @@ class TestTextExtractor:
         result = extractor.extract_relevant_snippets("", ["jwst"])
         assert result == []
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_extract_snippets_no_keywords_found(self, mock_nltk):
         """Test extraction when no keywords are found."""
         mock_nltk.data.find.return_value = True
@@ -82,7 +82,7 @@ class TestTextExtractor:
         result = extractor.extract_relevant_snippets(text, keywords)
         assert result == []
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_extract_snippets_single_match(self, mock_nltk):
         """Test extraction with a single keyword match."""
         mock_nltk.data.find.return_value = True
@@ -104,7 +104,7 @@ class TestTextExtractor:
         combined_result = " ".join(result)
         assert "JWST" in combined_result or "jwst" in combined_result.lower()
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_extract_snippets_case_insensitive(self, mock_nltk):
         """Test that keyword matching is case-insensitive."""
         mock_nltk.data.find.return_value = True
@@ -123,7 +123,7 @@ class TestTextExtractor:
         combined_result = " ".join(result)
         assert "JWST telescope observed" in combined_result
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_fallback_when_nltk_fails(self, mock_nltk):
         """Test fallback behavior when NLTK sentence tokenization fails."""
         mock_nltk.data.find.return_value = True
@@ -142,7 +142,7 @@ class TestTextExtractor:
             combined_result = " ".join(result)
             assert "JWST" in combined_result or "jwst" in combined_result.lower()
     
-    @patch('jwst_preprint_analyzer.processing.text_extractor.nltk')
+    @patch('automated_mission_classifier.processing.text_extractor.nltk')
     def test_extract_snippets_minimum_length_filter(self, mock_nltk):
         """Test that very short snippets are filtered out."""
         mock_nltk.data.find.return_value = True

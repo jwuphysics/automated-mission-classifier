@@ -73,18 +73,6 @@ class TestMissionScienceLabelerModel:
         with pytest.raises(ValidationError):
             MissionScienceLabelerModel(**invalid_data)
     
-    def test_backward_compatibility_jwstscience(self):
-        """Test that the model still works with the old jwstscience field."""
-        data = {
-            "quotes": ["This paper uses JWST observations"],
-            "jwstscience": 0.8,
-            "reason": "Paper presents JWST science content"
-        }
-        model = MissionScienceLabelerModel(**data)
-        
-        assert model.science == 0.8
-        assert model.jwstscience == 0.8
-    
     def test_new_science_field(self):
         """Test that the model works with the new science field."""
         data = {
@@ -95,4 +83,3 @@ class TestMissionScienceLabelerModel:
         model = MissionScienceLabelerModel(**data)
         
         assert model.science == 0.7
-        assert model.jwstscience == 0.7
